@@ -1,0 +1,212 @@
+---
+name: snippets
+description: MUST use when user asks to create, edit, manage, or share snippets, or asks how snippets work
+---
+
+# Snippets
+
+Reusable text blocks expanded via `#hashtag` in messages.
+
+## Locations
+
+### Snippets
+- **Global**: `~/.config/opencode/snippet/*.md`
+- **Project**: `.opencode/snippet/*.md` (overrides global)
+
+### Configuration
+- **Global**: `~/.config/opencode/snippet/config.jsonc`
+- **Project**: `.opencode/snippet/config.jsonc` (merges with global, project takes priority)
+
+IMPORTANT: When modifying snippet configuration:
+1. Check BOTH locations for existing config files
+2. If only one exists, modify that one
+3. If both exist, ask the user which one to modify
+4. If neither exists, create the global config
+
+### Logs
+- **Debug logs**: `~/.config/opencode/logs/snippets/daily/YYYY-MM-DD.log`
+
+## Configuration
+
+All boolean settings accept: `true`, `false`, `"enabled"`, `"disabled"`
+
+Full config example with all options:
+
+```jsonc
+{
+  // JSON Schema for editor autocompletion
+  "$schema": "https://raw.githubusercontent.com/JosXa/opencode-snippets/v1.7.0/schema/config.schema.json",
+
+  // Logging settings
+  "logging": {
+    // Enable debug logging to file
+    // Logs are written to ~/.pi/agent/logs/snippets/daily/
+    // Default: false
+    "debug": false
+  },
+
+  // Experimental features (may change or be removed)
+  "experimental": {
+    // Enable <inject>...</inject> blocks for persistent context messages
+    // Default: false
+    "injectBlocks": false,
+    // Enable skill rendering with <skill>name</skill> syntax
+    // Default: false
+    "skillRendering": false
+  },
+
+  // Hide shell command in output, showing only the result
+  // Default: false
+  "hideCommandInOutput": false
+}
+```
+
+## Snippet Format
+
+```md
+---
+aliases:
+  - short
+  - alt
+description: Optional
+---
+Content here
+```
+
+Frontmatter optional. Filename (minus .md) = primary hashtag.
+
+## Features
+
+- `#other` - include another snippet (recursive, max 15 depth)
+- `` !`cmd` `` - shell substitution, output injected
+
+### Prepend/Append Blocks
+
+Move content to message start/end instead of inline. Best for long reference material that breaks writing flow.
+
+```md
+---
+aliases: jira
+---
+Jira MCP
+<prepend>
+## Jira Field Mappings
+
+- customfield_16570 => Acceptance Criteria
+- customfield_11401 => Team
+</prepend>
+```
+
+Input: `Create bug in #jira about leak`
+Output: Prepended section at top + `Create bug in Jira MCP about leak`.
+
+Use `<append>` for reference material at end. Content inside blocks should use `##` headings.
+
+### Inject Blocks (Experimental)
+
+Add persistent context that the LLM sees throughout the entire agentic loop, without cluttering the visible message.
+
+```md
+---
+aliases: safe
+---
+Think step by step.
+<inject>
+IMPORTANT: Double-check all code for security vulnerabilities.
+Always suggest tests for any implementation.
+</inject>
+```
+
+Input: `Review this code #safe`
+Output: User sees "Review this code Think step by step." but the LLM also receives the inject content as separate context that persists for the entire conversation turn.
+
+Use for rules, constraints, or context that should influence all responses without appearing inline.
+
+Enable in config:
+```jsonc
+{
+  "experimental": {
+    "injectBlocks": true
+  }
+}
+```
+
+### Skill Rendering (Experimental)
+
+Inline OpenCode skills directly into messages using XML tags:
+
+```md
+Create a Jira ticket. <skill>jira</skill>
+<!-- or -->
+<skill name="jira" />
+```
+
+Enable in config:
+```jsonc
+{
+  "experimental": {
+    "skillRendering": true
+  }
+}
+```
+
+Skills are loaded from OpenCode's standard directories (`~/.config/opencode/skill/` and `.opencode/skill/`).
+
+## Commands
+
+- `/snippet add <name> [content]` - create global snippet
+- `/snippet add --project <name>` - create project snippet
+- `/snippet list` - show all available
+- `/snippet delete <name>` - remove snippet
+
+## Good Snippets
+
+Short, focused, single-purpose. Examples:
+
+```md
+# careful.md
+---
+aliases: safe
+---
+Be careful, autonomous, and ONLY do what I asked.
+```
+
+```md
+# context.md
+---
+aliases: ctx
+---
+Project: !`basename $(pwd)`
+Branch: !`git branch --show-current`
+```
+
+Compose via includes: `#base-rules` inside `#project-config`.
+
+## Sharing Snippets
+
+Share to GitHub Discussions: https://github.com/JosXa/opencode-snippets/discussions/categories/snippets
+
+When user wants to share:
+
+1. Check `gh --version` works
+2. **If gh available**: MUST use question tool to ask user to confirm posting + ask "When do you use it?". Then:
+   ```bash
+   gh api graphql -f query='mutation($repoId: ID!, $catId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $catId, title: $title, body: $body}) { discussion { url } } }' -f repoId="R_kgDOQ968oA" -f catId="DIC_kwDOQ968oM4C1Qcv" -f title="filename.md" -f body="<body>"
+   ```
+   Body format:
+   ```
+   ## Snippet Content
+   
+   \`\`\`markdown
+   <full snippet file content>
+   \`\`\`
+   
+   ## When do you use it?
+   
+   <user's answer>
+   ```
+3. **If gh unavailable**: Open browser:
+   ```
+   https://github.com/JosXa/opencode-snippets/discussions/new?category=snippets&title=<url-encoded-filename>.md
+   ```
+   Ask user (without question tool) for "When do you use it?" info. Tell them to paste snippet in markdown fence.
