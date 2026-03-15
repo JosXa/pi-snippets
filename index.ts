@@ -1,19 +1,19 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { executeCommand } from "../src/commands.js";
-import { loadConfig } from "../src/config.js";
-import { assembleMessage, type ExpandOptions, expandHashtags } from "../src/expander.js";
-import { InjectionManager } from "../src/injection-manager.js";
-import { loadSnippets } from "../src/loader.js";
-import { logger } from "../src/logger.js";
-import { executeShellCommands } from "../src/shell.js";
-import { loadSkills, type SkillRegistry } from "../src/skill-loader.js";
-import { expandSkillTags } from "../src/skill-renderer.js";
+import { executeCommand } from "./src/commands.js";
+import { loadConfig } from "./src/config.js";
+import { assembleMessage, type ExpandOptions, expandHashtags } from "./src/expander.js";
+import { InjectionManager } from "./src/injection-manager.js";
+import { loadSnippets } from "./src/loader.js";
+import { logger } from "./src/logger.js";
+import { executeShellCommands } from "./src/shell.js";
+import { loadSkills, type SkillRegistry } from "./src/skill-loader.js";
+import { expandSkillTags } from "./src/skill-renderer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const SKILL_DIR = join(__dirname, "..", "skills");
+const SKILL_DIR = join(__dirname, "skills");
 
 export default function snippetsExtension(pi: ExtensionAPI) {
   const injectionManager = new InjectionManager();

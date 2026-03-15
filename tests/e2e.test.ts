@@ -29,7 +29,7 @@ describe("E2E Integration", () => {
 
   test("Pi expands snippet in CLI mode", async () => {
     // Run pi with our extension
-    const extensionPath = join(process.cwd(), "extensions", "index.ts");
+    const extensionPath = join(process.cwd(), "index.ts");
 
     // We use the --mode json or print to avoid interactive TUI, and pass the prompt directly
     const result =
