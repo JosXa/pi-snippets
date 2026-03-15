@@ -36,14 +36,14 @@ Snippets compose with each other. Reference `#snippets` anywhere - in your messa
 
 **Example: Snippets composing snippets**
 
-`~/.pi/agent/snippet/code-standards.md`:
+`~/.config/snippets/code-standards.md`:
 ```markdown
 #style-guide
 #error-handling
 #testing-requirements
 ```
 
-`~/.pi/agent/snippet/full-review.md`:
+`~/.config/snippets/full-review.md`:
 ```markdown
 #code-standards
 #security-checklist
@@ -67,12 +67,12 @@ pi install git:github.com/JosXa/pi-snippets
 **1. Create your global snippets directory:**
 
 ```bash
-mkdir -p ~/.pi/agent/snippet
+mkdir -p ~/.config/snippets
 ```
 
 **2. Add your first snippet:**
 
-`~/.pi/agent/snippet/careful.md`:
+`~/.config/snippets/careful.md`:
 ```markdown
 ---
 aliases: safe
@@ -87,7 +87,12 @@ Type `#careful` or `#safe` in your messages and they will automatically expand.
 
 ## Where to Store Snippets
 
-Snippets can be global (`~/.pi/agent/snippet/*.md`) or project-specific (`.pi/snippet/*.md`). Both directories are loaded automatically. Project snippets override global ones with the same name.
+Snippets can be stored in two locations:
+
+- **Global:** `~/.config/snippets/*.md` — shared across all projects and tool-agnostic (works with both pi-snippets and opencode-snippets)
+- **Project:** `.pi/snippets/*.md` — scoped to the current project
+
+Both directories are loaded automatically. Project snippets override global ones with the same name.
 
 ## Features
 
@@ -95,7 +100,7 @@ Snippets can be global (`~/.pi/agent/snippet/*.md`) or project-specific (`.pi/sn
 
 Define multiple triggers for the same snippet:
 
-`~/.pi/agent/snippet/cherry-pick.md`:
+`~/.config/snippets/cherry-pick.md`:
 ```markdown
 ---
 aliases:
@@ -254,7 +259,7 @@ Skills are loaded from Pi's standard skill directories (`~/.pi/agent/skills/` an
 
 ## Example Snippets
 
-### `~/.pi/agent/snippet/context.md`
+### `~/.config/snippets/context.md`
 ```markdown
 ---
 aliases: ctx
@@ -264,7 +269,7 @@ Branch: !`git branch --show-current`
 Recent changes: !`git diff --stat HEAD~3 | tail -5`
 ```
 
-### `~/.pi/agent/snippet/minimal.md`
+### `~/.config/snippets/minimal.md`
 ```markdown
 ---
 aliases:
@@ -278,8 +283,8 @@ Be extremely concise. No explanations unless asked.
 
 The plugin can be configured via `config.jsonc` files:
 
-- **Global**: `~/.pi/agent/snippet/config.jsonc`
-- **Project**: `.pi/snippet/config.jsonc` (overrides global settings)
+- **Global**: `~/.config/snippets/config.jsonc`
+- **Project**: `.pi/snippets/config.jsonc` (overrides global settings)
 
 A default config file is created automatically on first run.
 
@@ -290,7 +295,7 @@ A default config file is created automatically on first run.
   // Logging settings
   "logging": {
     // Enable debug logging to file
-    // Logs are written to ~/.pi/agent/logs/snippets/daily/
+    // Logs are written to ~/.config/snippets/logs/
     "debug": false
   },
   "experimental": {
@@ -305,12 +310,12 @@ All boolean settings accept: `true`, `false`, `"enabled"`, `"disabled"`
 
 ### Debug Logging
 
-Logs are written to `~/.pi/agent/logs/snippets/daily/` when enabled.
+Logs are written to `~/.config/snippets/logs/` when enabled.
 
 ## Behavior Notes
 
 - Snippets expand everywhere: regular chat, question responses, skills, and slash commands
-- Snippets are loaded once at session start
+- Snippets are loaded at session start; use `/reload` to pick up changes without restarting
 - Hashtag matching is **case-insensitive** (`#Hello` = `#hello`)
 - Unknown hashtags are left unchanged
 - Failed shell commands preserve the original syntax in output
