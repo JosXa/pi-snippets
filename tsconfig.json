@@ -11,5 +11,5 @@
     "baseUrl": ".",
     "noEmit": true
   },
-  "include": ["extensions/**/*.ts", "src/**/*.ts", "tests/**/*.ts"]
+  "include": ["index.ts", "extensions/**/*.ts", "src/**/*.ts", "tests/**/*.ts"]
 }

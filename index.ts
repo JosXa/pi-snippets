@@ -10,6 +10,7 @@ import { logger } from "./src/logger.js";
 import { executeShellCommands } from "./src/shell.js";
 import { loadSkills, type SkillRegistry } from "./src/skill-loader.js";
 import { expandSkillTags } from "./src/skill-renderer.js";
+import { SnippetEditor } from "./src/snippet-editor.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,6 +21,7 @@ export default function snippetsExtension(pi: ExtensionAPI) {
   let snippets = new Map();
   let skills: SkillRegistry = new Map();
   let config = loadConfig(); // loaded fully on session start
+  let snippetEditor: SnippetEditor | null = null;
 
   // 1. Register bundled skills
   pi.on("resources_discover", () => {
@@ -46,6 +48,12 @@ export default function snippetsExtension(pi: ExtensionAPI) {
     if (config.experimental.skillRendering) {
       skills = await loadSkills(ctx.cwd);
     }
+
+    // Install custom editor with snippet autocomplete
+    ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+      snippetEditor = new SnippetEditor(tui, theme, keybindings, snippets);
+      return snippetEditor;
+    });
 
     logger.debug("Snippets extension loaded", {
       snippetCount: snippets.size,
