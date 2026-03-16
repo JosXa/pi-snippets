@@ -38,6 +38,9 @@ export interface SnippetsConfig {
 
   /** Hide shell command in output, showing only the result */
   hideCommandInOutput: boolean;
+
+  /** Re-inject hidden snippet context after this many conversation messages */
+  injectRecencyMessages: number;
 }
 
 /**
@@ -52,6 +55,7 @@ interface RawConfig {
     injectBlocks?: BooleanSetting;
   };
   hideCommandInOutput?: BooleanSetting;
+  injectRecencyMessages?: number | string;
 }
 
 /**
@@ -66,19 +70,17 @@ const DEFAULT_CONFIG: SnippetsConfig = {
     injectBlocks: false,
   },
   hideCommandInOutput: false,
+  injectRecencyMessages: 5,
 };
 
 /**
  * Default config file content with comments explaining all options
  */
 const DEFAULT_CONFIG_CONTENT = `{
-  // JSON Schema for editor autocompletion
-  "$schema": "https://raw.githubusercontent.com/JosXa/opencode-snippets/v1.7.0/schema/config.schema.json",
-
   // Logging settings
   "logging": {
     // Enable debug logging to file
-    // Logs are written to ~/.config/opencode/logs/snippets/daily/
+    // Logs are written to ~/.config/snippets/logs/daily/
     // Values: true, false, "enabled", "disabled"
     // Default: false
     "debug": false
@@ -88,7 +90,6 @@ const DEFAULT_CONFIG_CONTENT = `{
   "experimental": {
     // Enable skill rendering with <skill>name</skill> or <skill name="name" /> syntax
     // When enabled, skill tags are replaced with the skill's content body
-    // Skills are loaded from OpenCode's standard skill directories
     // Values: true, false, "enabled", "disabled"
     // Default: false
     "skillRendering": false
@@ -96,10 +97,14 @@ const DEFAULT_CONFIG_CONTENT = `{
 
   // Hide shell command in snippet output
   // When false (default), shell commands show as "$ command\\n--> output"
-  // When true, only the output is shown (matching OpenCode's slash command behavior)
+  // When true, only the output is shown
   // Values: true, false, "enabled", "disabled"
   // Default: false
-  "hideCommandInOutput": false
+  "hideCommandInOutput": false,
+
+  // Re-inject hidden snippet context after this many conversation messages
+  // Default: 5
+  "injectRecencyMessages": 5
 }
 `;
 
@@ -112,6 +117,13 @@ function normalizeBooleanSetting(value: BooleanSetting | undefined): boolean | u
   if (value === "enabled") return true;
   if (value === "disabled") return false;
   return undefined;
+}
+
+function normalizePositiveInteger(value: number | string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = typeof value === "number" ? value : Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return undefined;
+  return Math.floor(parsed);
 }
 
 /**
@@ -158,8 +170,8 @@ function ensureGlobalConfigExists(): void {
  * Load and merge configuration from global and project-specific config files
  *
  * Configuration priority (highest to lowest):
- * 1. Project-specific config (.pi/snippet/config.jsonc)
- * 2. Global config (~/.pi/agent/snippet/config.jsonc)
+ * 1. Project-specific config (.pi/snippets/config.jsonc or .pi/snippet/config.jsonc)
+ * 2. Global config (~/.config/snippets/config.jsonc)
  * 3. Default values
  *
  * @param projectDir - Optional project directory to check for project-specific config
@@ -180,8 +192,14 @@ export function loadConfig(projectDir?: string): SnippetsConfig {
   }
 
   // Load project config if project directory is provided
+  // Check both legacy (.pi/snippet/) and preferred (.pi/snippets/) — preferred wins
   if (projectDir) {
     const projectPaths = getProjectPaths(projectDir);
+    if (existsSync(projectPaths.CONFIG_FILE_LEGACY)) {
+      const legacyConfig = parseJsoncFile(projectPaths.CONFIG_FILE_LEGACY);
+      config = mergeConfig(config, legacyConfig);
+      logger.debug("Loaded legacy project config", { path: projectPaths.CONFIG_FILE_LEGACY });
+    }
     if (existsSync(projectPaths.CONFIG_FILE)) {
       const projectConfig = parseJsoncFile(projectPaths.CONFIG_FILE);
       config = mergeConfig(config, projectConfig);
@@ -193,6 +211,7 @@ export function loadConfig(projectDir?: string): SnippetsConfig {
     loggingDebug: config.logging.debug,
     experimentalSkillRendering: config.experimental.skillRendering,
     hideCommandInOutput: config.hideCommandInOutput,
+    injectRecencyMessages: config.injectRecencyMessages,
   });
 
   return config;
@@ -206,6 +225,7 @@ function mergeConfig(base: SnippetsConfig, raw: RawConfig): SnippetsConfig {
   const skillRenderingValue = normalizeBooleanSetting(raw.experimental?.skillRendering);
   const injectBlocksValue = normalizeBooleanSetting(raw.experimental?.injectBlocks);
   const hideCommandValue = normalizeBooleanSetting(raw.hideCommandInOutput);
+  const injectRecencyValue = normalizePositiveInteger(raw.injectRecencyMessages);
 
   return {
     logging: {
@@ -219,6 +239,8 @@ function mergeConfig(base: SnippetsConfig, raw: RawConfig): SnippetsConfig {
     },
     hideCommandInOutput:
       hideCommandValue !== undefined ? hideCommandValue : base.hideCommandInOutput,
+    injectRecencyMessages:
+      injectRecencyValue !== undefined ? injectRecencyValue : base.injectRecencyMessages,
   };
 }
 

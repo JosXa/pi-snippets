@@ -2,11 +2,19 @@
   "name": "pi-snippets",
   "version": "1.0.0",
   "description": "Hashtag-based snippet expansion for Pi",
-  "keywords": ["pi-package", "pi-coding-agent", "snippets"],
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "snippets"
+  ],
   "type": "module",
   "pi": {
-    "extensions": ["./index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",
@@ -27,7 +35,7 @@
   "scripts": {
     "format:check": "biome check .",
     "format:fix": "biome check --write .",
-    "test": "bun test tests/expander.test.ts tests/loader.test.ts tests/arg-parser.test.ts tests/skill-renderer.test.ts",
+    "test": "bun test tests/expander.test.ts tests/loader.test.ts tests/arg-parser.test.ts tests/skill-renderer.test.ts tests/injection-manager.test.ts",
     "test:e2e": "bun test tests/e2e.test.ts"
   }
 }

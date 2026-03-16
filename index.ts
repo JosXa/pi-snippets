@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { AutocompleteProvider } from "@mariozechner/pi-tui";
+import { Text, type AutocompleteProvider } from "@mariozechner/pi-tui";
 import { SnippetAutocompleteProvider } from "./src/autocomplete.js";
 import { executeCommand } from "./src/commands.js";
 import { loadConfig } from "./src/config.js";
@@ -20,6 +20,8 @@ const SKILL_DIR = join(__dirname, "skills");
 const ORIGINAL_SET_EDITOR_KEY = "__piSnippetsOriginalSetEditor";
 const HASH_TRIGGER_PATCHED_KEY = "__piSnippetsHashTriggerPatched";
 const AUTOCOMPLETE_PATCHED_KEY = "__piSnippetsAutocompletePatched";
+const SNIPPET_INJECTION_CONTEXT_TYPE = "snippet-injection-context";
+const SNIPPET_INJECTION_NOTIFY_TYPE = "snippet-injection-notify";
 
 export default function snippetsExtension(pi: ExtensionAPI) {
   const injectionManager = new InjectionManager();
@@ -41,6 +43,13 @@ export default function snippetsExtension(pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       await executeCommand(args, ctx, snippets, ctx.cwd);
     },
+  });
+
+  pi.registerMessageRenderer(SNIPPET_INJECTION_NOTIFY_TYPE, (message, _options, theme) => {
+    const details = message.details as { snippetNames?: string[] } | undefined;
+    const names = details?.snippetNames ?? [];
+    const lines = names.map((name) => theme.fg("dim", `↳ Injected #${name}`));
+    return new Text(lines.join("\n"), 0, 0);
   });
 
   // 3. Load config and snippets on session start
@@ -107,8 +116,12 @@ export default function snippetsExtension(pi: ExtensionAPI) {
   pi.on("input", async (event, ctx) => {
     if (!event.text) return { action: "continue" };
 
+    const touchedInjections: Array<{ snippetName: string; content: string }> = [];
     const expandOptions: ExpandOptions = {
       extractInject: config.experimental.injectBlocks,
+      onInjectBlock: (block) => {
+        touchedInjections.push(block);
+      },
     };
 
     let text = event.text;
@@ -133,12 +146,9 @@ export default function snippetsExtension(pi: ExtensionAPI) {
       );
     }
 
-    // Save inject blocks
-    if (expansionResult.inject.length > 0) {
-      injectionManager.addInjections(
-        ctx.sessionManager.getSessionFile() || "ephemeral",
-        expansionResult.inject,
-      );
+    if (touchedInjections.length > 0) {
+      const sessionId = ctx.sessionManager.getSessionFile() || "ephemeral";
+      injectionManager.touchInjections(sessionId, touchedInjections);
     }
 
     if (text !== event.text) {
@@ -148,23 +158,85 @@ export default function snippetsExtension(pi: ExtensionAPI) {
     return { action: "continue" };
   });
 
-  // 5. Inject blocks via system prompt
-  pi.on("before_agent_start", async (event, ctx) => {
+  // 5. Re-inject stale snippet context as hidden custom messages
+  pi.on("before_agent_start", async (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionFile() || "ephemeral";
-    const injections = injectionManager.getInjections(sessionId);
+    const messageCount = getConversationMessageCount(ctx);
+    const { reinjected } = injectionManager.getRenderableInjections(
+      sessionId,
+      messageCount,
+      config.injectRecencyMessages,
+    );
 
-    if (injections && injections.length > 0) {
-      return {
-        systemPrompt: `${event.systemPrompt}\n\n${injections.join("\n\n")}`,
-      };
+    if (reinjected.length === 0) return;
+
+    const snippetNames = [...new Set(reinjected.map((injection) => injection.snippetName))];
+
+    for (const injection of reinjected) {
+      pi.sendMessage(
+        {
+          customType: SNIPPET_INJECTION_CONTEXT_TYPE,
+          content: injection.content,
+          display: false,
+          details: {
+            key: injection.key,
+            snippetName: injection.snippetName,
+          },
+        },
+        { triggerTurn: false },
+      );
     }
+
+    pi.sendMessage(
+      {
+        customType: SNIPPET_INJECTION_NOTIFY_TYPE,
+        content: snippetNames.map((name) => `↳ Injected #${name}`).join("\n"),
+        display: true,
+        details: { snippetNames },
+      },
+      { triggerTurn: false },
+    );
   });
 
-  // 6. Cleanup inject blocks on agent end
-  pi.on("agent_end", async (_event, ctx) => {
+  // 6. Keep only the newest hidden snippet injection per key and hide notify messages from LLM context
+  pi.on("context", async (event) => {
+    const latestInjectionByKey = new Map<string, number>();
+
+    event.messages.forEach((message, index) => {
+      const msg = message as { customType?: string; details?: { key?: string } };
+      if (msg.customType !== SNIPPET_INJECTION_CONTEXT_TYPE) return;
+      const key = msg.details?.key;
+      if (!key) return;
+      latestInjectionByKey.set(key, index);
+    });
+
+    return {
+      messages: event.messages.filter((message, index) => {
+        const msg = message as { customType?: string; details?: { key?: string } };
+        if (msg.customType === SNIPPET_INJECTION_NOTIFY_TYPE) return false;
+        if (msg.customType !== SNIPPET_INJECTION_CONTEXT_TYPE) return true;
+        const key = msg.details?.key;
+        if (!key) return false;
+        return latestInjectionByKey.get(key) === index;
+      }),
+    };
+  });
+
+  // 7. Cleanup on shutdown / session changes
+  pi.on("session_shutdown", async (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionFile() || "ephemeral";
     injectionManager.clearSession(sessionId);
   });
+
+  pi.on("session_switch", async (event) => {
+    if (event.previousSessionFile) {
+      injectionManager.clearSession(event.previousSessionFile);
+    }
+  });
+}
+
+function getConversationMessageCount(ctx: { sessionManager: { getBranch(): Array<{ type?: string }> } }): number {
+  return ctx.sessionManager.getBranch().filter((entry) => entry?.type === "message").length;
 }
 
 /**
