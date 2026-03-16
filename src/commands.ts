@@ -175,7 +175,7 @@ async function handleAddCommand(cmdCtx: CommandContext): Promise<void> {
         '  /snippet add hi "hello there" --aliases hello,hey\n' +
         '  /snippet add fix "fix imports" --project\n\n' +
         "Options:\n" +
-        "  --project             Add to project directory (.pi/snippet/)\n" +
+        "  --project             Add to project directory (.pi/snippets/)\n" +
         "  --aliases X,Y,Z       Add aliases (comma-separated)\n" +
         '  --desc "..."          Add a description',
       "info",
@@ -317,7 +317,7 @@ async function handleListCommand(cmdCtx: CommandContext): Promise<void> {
       "No snippets found.\n\n" +
         `Global snippets: ${PATHS.SNIPPETS_DIR}\n` +
         (projectDir
-          ? `Project snippets: ${projectDir}/.pi/snippet/`
+          ? `Project snippets: ${projectDir}/.pi/snippets/`
           : "No project directory detected.") +
         "\n\nUse /snippet add <name> to add a new snippet.",
       "info",
@@ -339,7 +339,7 @@ async function handleListCommand(cmdCtx: CommandContext): Promise<void> {
   }
 
   if (projectSnippets.length > 0) {
-    lines.push(`── Project (${projectDir}/.pi/snippet/) ──`, "");
+    lines.push(`── Project (${projectDir}/.pi/snippets/) ──`, "");
     for (const s of projectSnippets) {
       lines.push(formatSnippetEntry(s), "");
     }
@@ -372,8 +372,8 @@ Commands:
   help                      Show this help message
 
 Snippet Locations:
-  Global:  ~/.pi/agent/snippet/
-  Project: <project>/.pi/snippet/
+  Global:  ~/.config/snippets/
+  Project: <project>/.pi/snippets/
 
 Usage in messages:
   Type #snippet-name to expand a snippet inline.

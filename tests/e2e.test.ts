@@ -9,11 +9,11 @@ const TEST_DIR = join(process.cwd(), "e2e-test-dir");
 describe("E2E Integration", () => {
   beforeAll(async () => {
     // Setup test environment
-    await mkdir(join(TEST_DIR, ".pi", "snippet"), { recursive: true });
+    await mkdir(join(TEST_DIR, ".pi", "snippets"), { recursive: true });
 
     // Create a local snippet
     await writeFile(
-      join(TEST_DIR, ".pi", "snippet", "test-snippet.md"),
+      join(TEST_DIR, ".pi", "snippets", "test-snippet.md"),
       "Hello from pi-snippets integration test!",
     );
   });

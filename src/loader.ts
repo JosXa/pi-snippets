@@ -1,12 +1,15 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import matter from "gray-matter";
-import { CONFIG, PATHS } from "./constants.js";
+import { CONFIG, getProjectPaths, PATHS } from "./constants.js";
 import { logger } from "./logger.js";
 import type { SnippetFrontmatter, SnippetInfo, SnippetRegistry } from "./types.js";
 
 /**
  * Loads all snippets from global and project directories
+ *
+ * For project snippets, both `.pi/snippets/` (preferred) and `.pi/snippet/` (legacy)
+ * are loaded and merged. Legacy snippets are loaded first so preferred ones override.
  *
  * @param projectDir - Optional project directory path (from ctx.directory)
  * @param globalDir - Optional global snippets directory (for testing)
@@ -22,10 +25,12 @@ export async function loadSnippets(
   const globalSnippetsDir = globalDir ?? PATHS.SNIPPETS_DIR;
   await loadFromDirectory(globalSnippetsDir, snippets, "global");
 
-  // Load from project directory if provided (overrides global)
+  // Load from project directories if provided (overrides global)
   if (projectDir) {
-    const projectSnippetsDir = join(projectDir, ".pi", "snippet");
-    await loadFromDirectory(projectSnippetsDir, snippets, "project");
+    const paths = getProjectPaths(projectDir);
+    // Load legacy (.pi/snippet/) first, then preferred (.pi/snippets/) so preferred wins
+    await loadFromDirectory(paths.SNIPPETS_DIR_LEGACY, snippets, "project");
+    await loadFromDirectory(paths.SNIPPETS_DIR, snippets, "project");
   }
 
   return snippets;
@@ -167,10 +172,11 @@ export function listSnippets(registry: SnippetRegistry): SnippetInfo[] {
 }
 
 /**
- * Ensures the snippets directory exists
+ * Ensures the snippets directory exists.
+ * For project dirs, uses `.pi/snippets/` (plural, preferred).
  */
 export async function ensureSnippetsDir(projectDir?: string): Promise<string> {
-  const dir = projectDir ? join(projectDir, ".pi", "snippet") : PATHS.SNIPPETS_DIR;
+  const dir = projectDir ? getProjectPaths(projectDir).SNIPPETS_DIR : PATHS.SNIPPETS_DIR;
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -219,20 +225,25 @@ export async function createSnippet(
 /**
  * Deletes a snippet file
  *
+ * Checks project directories first (preferred, then legacy), then global.
+ *
  * @param name - The snippet name (without extension)
  * @param projectDir - If provided, looks in project directory first; otherwise global
  * @returns The path of the deleted file, or null if not found
  */
 export async function deleteSnippet(name: string, projectDir?: string): Promise<string | null> {
-  // Try project directory first if provided
+  // Try project directories first if provided (preferred, then legacy)
   if (projectDir) {
-    const projectPath = join(projectDir, ".pi", "snippet", `${name}${CONFIG.SNIPPET_EXTENSION}`);
-    try {
-      await unlink(projectPath);
-      logger.info("Deleted project snippet", { name, path: projectPath });
-      return projectPath;
-    } catch {
-      // Not found in project, try global
+    const paths = getProjectPaths(projectDir);
+    for (const dir of [paths.SNIPPETS_DIR, paths.SNIPPETS_DIR_LEGACY]) {
+      const projectPath = join(dir, `${name}${CONFIG.SNIPPET_EXTENSION}`);
+      try {
+        await unlink(projectPath);
+        logger.info("Deleted project snippet", { name, path: projectPath });
+        return projectPath;
+      } catch {
+        // Not found here, try next
+      }
     }
   }
 

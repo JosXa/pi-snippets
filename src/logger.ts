@@ -7,7 +7,7 @@ export class Logger {
   debugEnabled: boolean;
 
   constructor(logDirOverride?: string, debugEnabled = false) {
-    this.logDir = logDirOverride ?? join(PATHS.CONFIG_DIR, "logs", "snippets");
+    this.logDir = logDirOverride ?? PATHS.LOG_DIR;
     this.debugEnabled = debugEnabled;
   }
 

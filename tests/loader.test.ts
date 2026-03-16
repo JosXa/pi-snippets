@@ -5,13 +5,17 @@ import { loadSnippets } from "../src/loader.js";
 describe("loadSnippets - Dual Path Support", () => {
   let tempDir: string;
   let globalSnippetDir: string;
+  /** Preferred project snippets dir (.pi/snippets/, plural) */
   let projectSnippetDir: string;
+  /** Legacy project snippets dir (.pi/snippet/, singular) */
+  let projectSnippetDirLegacy: string;
 
   beforeEach(async () => {
     // Create temporary directories for testing
     tempDir = join(process.cwd(), ".test-temp");
     globalSnippetDir = join(tempDir, "global-snippet");
-    projectSnippetDir = join(tempDir, "project", ".pi", "snippet");
+    projectSnippetDir = join(tempDir, "project", ".pi", "snippets");
+    projectSnippetDirLegacy = join(tempDir, "project", ".pi", "snippet");
 
     await mkdir(globalSnippetDir, { recursive: true });
     await mkdir(projectSnippetDir, { recursive: true });
@@ -244,6 +248,49 @@ Content`,
     it("should handle non-existent directories gracefully", async () => {
       const snippets = await loadSnippets(undefined, "/nonexistent/path");
       expect(snippets.size).toBe(0);
+    });
+  });
+
+  describe("Legacy + preferred project directory merging", () => {
+    it("should load snippets from both .pi/snippets/ and .pi/snippet/", async () => {
+      await mkdir(projectSnippetDirLegacy, { recursive: true });
+
+      await writeFile(join(projectSnippetDirLegacy, "legacy.md"), "From legacy dir");
+      await writeFile(join(projectSnippetDir, "preferred.md"), "From preferred dir");
+
+      const projectDir = join(tempDir, "project");
+      const snippets = await loadSnippets(projectDir, globalSnippetDir);
+
+      expect(snippets.size).toBe(2);
+      expect(snippets.get("legacy")?.content).toBe("From legacy dir");
+      expect(snippets.get("preferred")?.content).toBe("From preferred dir");
+    });
+
+    it("should prefer .pi/snippets/ over .pi/snippet/ for same-name snippets", async () => {
+      await mkdir(projectSnippetDirLegacy, { recursive: true });
+
+      await writeFile(join(projectSnippetDirLegacy, "overlap.md"), "Legacy version");
+      await writeFile(join(projectSnippetDir, "overlap.md"), "Preferred version");
+
+      const projectDir = join(tempDir, "project");
+      const snippets = await loadSnippets(projectDir, globalSnippetDir);
+
+      expect(snippets.get("overlap")?.content).toBe("Preferred version");
+    });
+
+    it("should work with only legacy dir present", async () => {
+      // Remove the preferred dir, create legacy
+      const { rm: rmDir } = await import("node:fs/promises");
+      await rmDir(projectSnippetDir, { recursive: true, force: true });
+      await mkdir(projectSnippetDirLegacy, { recursive: true });
+
+      await writeFile(join(projectSnippetDirLegacy, "old-school.md"), "Still works");
+
+      const projectDir = join(tempDir, "project");
+      const snippets = await loadSnippets(projectDir, globalSnippetDir);
+
+      expect(snippets.size).toBe(1);
+      expect(snippets.get("old-school")?.content).toBe("Still works");
     });
   });
 

@@ -22,26 +22,37 @@ export const PATTERNS = {
 
 /**
  * File system paths
+ *
+ * Snippets live in ~/.config/snippets — a tool-agnostic location shared by
+ * both pi-snippets and opencode-snippets. This keeps your collection portable
+ * across coding agents.
  */
 export const PATHS = {
-  /** Pi configuration directory */
-  CONFIG_DIR: join(homedir(), ".pi", "agent"),
-
-  /** Snippets directory */
-  SNIPPETS_DIR: join(homedir(), ".pi", "agent", "snippet"),
+  /** Shared snippets directory (tool-agnostic) */
+  SNIPPETS_DIR: join(homedir(), ".config", "snippets"),
 
   /** Global config file */
-  CONFIG_FILE_GLOBAL: join(homedir(), ".pi", "agent", "snippet", "config.jsonc"),
+  CONFIG_FILE_GLOBAL: join(homedir(), ".config", "snippets", "config.jsonc"),
+
+  /** Log directory */
+  LOG_DIR: join(homedir(), ".config", "snippets", "logs"),
 } as const;
 
 /**
- * Get project-specific paths based on project directory
+ * Get project-specific snippet directories.
+ *
+ * Both `.pi/snippets/` (preferred, plural) and `.pi/snippet/` (legacy, singular)
+ * are supported and merged. New snippets are always written to the plural form.
  */
 export function getProjectPaths(projectDir: string) {
-  const snippetDir = join(projectDir, ".pi", "snippet");
   return {
-    SNIPPETS_DIR: snippetDir,
-    CONFIG_FILE: join(snippetDir, "config.jsonc"),
+    /** Preferred directory — new snippets go here */
+    SNIPPETS_DIR: join(projectDir, ".pi", "snippets"),
+    /** Legacy directory — read from but never written to */
+    SNIPPETS_DIR_LEGACY: join(projectDir, ".pi", "snippet"),
+    /** Config file (checked in both dirs) */
+    CONFIG_FILE: join(projectDir, ".pi", "snippets", "config.jsonc"),
+    CONFIG_FILE_LEGACY: join(projectDir, ".pi", "snippet", "config.jsonc"),
   };
 }
 

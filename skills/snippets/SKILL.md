@@ -10,12 +10,14 @@ Reusable text blocks expanded via `#hashtag` in messages.
 ## Locations
 
 ### Snippets
-- **Global**: `~/.config/opencode/snippet/*.md`
-- **Project**: `.opencode/snippet/*.md` (overrides global)
+- **Global**: `~/.config/snippets/*.md` (shared across all coding agents)
+- **Project**: `.pi/snippets/*.md` (preferred, overrides global)
+- **Project (legacy)**: `.pi/snippet/*.md` (also loaded, but `.pi/snippets/` takes priority)
 
 ### Configuration
-- **Global**: `~/.config/opencode/snippet/config.jsonc`
-- **Project**: `.opencode/snippet/config.jsonc` (merges with global, project takes priority)
+- **Global**: `~/.config/snippets/config.jsonc`
+- **Project**: `.pi/snippets/config.jsonc` (merges with global, project takes priority)
+- **Project (legacy)**: `.pi/snippet/config.jsonc` (also loaded)
 
 IMPORTANT: When modifying snippet configuration:
 1. Check BOTH locations for existing config files
@@ -24,7 +26,7 @@ IMPORTANT: When modifying snippet configuration:
 4. If neither exists, create the global config
 
 ### Logs
-- **Debug logs**: `~/.config/opencode/logs/snippets/daily/YYYY-MM-DD.log`
+- **Debug logs**: `~/.config/snippets/logs/daily/YYYY-MM-DD.log`
 
 ## Configuration
 
@@ -34,13 +36,10 @@ Full config example with all options:
 
 ```jsonc
 {
-  // JSON Schema for editor autocompletion
-  "$schema": "https://raw.githubusercontent.com/JosXa/opencode-snippets/v1.7.0/schema/config.schema.json",
-
   // Logging settings
   "logging": {
     // Enable debug logging to file
-    // Logs are written to ~/.pi/agent/logs/snippets/daily/
+    // Logs are written to ~/.config/snippets/logs/daily/
     // Default: false
     "debug": false
   },
@@ -133,7 +132,7 @@ Enable in config:
 
 ### Skill Rendering (Experimental)
 
-Inline OpenCode skills directly into messages using XML tags:
+Inline skills directly into messages using XML tags:
 
 ```md
 Create a Jira ticket. <skill>jira</skill>
@@ -149,8 +148,6 @@ Enable in config:
   }
 }
 ```
-
-Skills are loaded from OpenCode's standard directories (`~/.config/opencode/skill/` and `.opencode/skill/`).
 
 ## Commands
 
