@@ -32,6 +32,7 @@ export class SnippetAutocompleteProvider implements AutocompleteProvider {
     lines: string[],
     cursorLine: number,
     cursorCol: number,
+    options: { signal: AbortSignal; force?: boolean },
   ): { items: AutocompleteItem[]; prefix: string } | null {
     const currentLine = lines[cursorLine] || "";
     const textBeforeCursor = currentLine.slice(0, cursorCol);
@@ -46,7 +47,7 @@ export class SnippetAutocompleteProvider implements AutocompleteProvider {
     }
 
     // Delegate to wrapped provider
-    return this.wrapped.getSuggestions(lines, cursorLine, cursorCol);
+    return this.wrapped.getSuggestions(lines, cursorLine, cursorCol, options);
   }
 
   applyCompletion(
