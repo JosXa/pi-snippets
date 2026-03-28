@@ -140,6 +140,33 @@ describe("SnippetAutocompleteProvider", () => {
       expect(result).not.toBeNull();
       expect(result!.items[0]!.value).toBe("/test");
     });
+
+    it("regression: should forward options to wrapped provider when delegating (no TypeError on options.force)", () => {
+      // Simulates CombinedAutocompleteProvider which reads options.force and options.signal.
+      // Before the fix, options was not forwarded, causing:
+      //   TypeError: Cannot read properties of undefined (reading 'force')
+      const optionsReceived: Array<{ signal: AbortSignal; force?: boolean }> = [];
+      const mockProvider: AutocompleteProvider = {
+        getSuggestions: (_lines, _cl, _cc, options) => {
+          // This will throw if options is undefined — exactly the original crash
+          optionsReceived.push(options);
+          void options.force; // access .force like CombinedAutocompleteProvider does
+          return null;
+        },
+        applyCompletion: (lines, cl, cc) => ({ lines, cursorLine: cl, cursorCol: cc }),
+      };
+      const wrappedProvider = new SnippetAutocompleteProvider(mockProvider, registry);
+      const signal = new AbortController().signal;
+
+      // Trigger via "/" so we go through the delegation path, not the # snippet path
+      expect(() =>
+        wrappedProvider.getSuggestions(["/"], 0, 1, { signal, force: false }),
+      ).not.toThrow();
+
+      expect(optionsReceived).toHaveLength(1);
+      expect(optionsReceived[0]!.signal).toBe(signal);
+      expect(optionsReceived[0]!.force).toBe(false);
+    });
   });
 
   describe("applyCompletion", () => {
